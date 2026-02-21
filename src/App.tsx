@@ -47,6 +47,7 @@ export default function App() {
 
   const fileInputRef = useRef(null);
 
+  // --- 入力フォーム用（表用） ---
   const [mood, setMood] = useState(3);
   const [condition, setCondition] = useState(50);
   const [progress, setProgress] = useState(50);
@@ -59,10 +60,12 @@ export default function App() {
   const [selfishness, setSelfishness] = useState(80); 
   const [reflection, setReflection] = useState(''); 
   
+  // --- 入力フォーム用（裏用） ---
   const [humanAnnoyance, setHumanAnnoyance] = useState(50);
   const [blameScale, setBlameScale] = useState(50);
   const [note, setNote] = useState(''); 
   
+  // --- 仕事・転職管理用ステート ---
   const [workIdeas, setWorkIdeas] = useState(""); 
   const [workDissatisfaction, setWorkDissatisfaction] = useState("無駄な人間関係。時間が縛られること。");
   const [workHope, setWorkHope] = useState("完全在宅。AIを活用して自分のペースで稼ぐ。");
@@ -78,7 +81,7 @@ export default function App() {
   const [randomPhrase, setRandomPhrase] = useState(robotPhrases[0]);
   const [dailyQuestion, setDailyQuestion] = useState("");
 
-  // ★ ダークモード・ライトモードの確実な切り替え
+  // ダークモードの切り替えをhtmlタグに反映させる
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -190,14 +193,12 @@ export default function App() {
     }
   };
 
-  // ★ バックアップ：人間が読んで分かる形（インデント付き）でJSONを出力
   const exportData = () => {
     const backupData = {
       entries,
       workData: { workIdeas, workDissatisfaction, workHope, workTasks },
       settings: { guidingStarFront, guidingStarBack, isRolandMode }
     };
-    // JSON.stringifyの引数に null, 2 を渡して、綺麗に改行させる
     const jsonString = JSON.stringify(backupData, null, 2);
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
     const downloadAnchorNode = document.createElement('a');
@@ -387,11 +388,11 @@ export default function App() {
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-cyan-50 dark:border-gray-700 space-y-6">
         <div>
-          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Wind size={20} className="text-cyan-400" /> {isRolandMode ? "脳のキレ" : "頭のクリアさ（ブレインフォグ）"} <span className="ml-auto text-sm text-gray-400">{brainClarity}%</span></label>
+          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Wind size={20} className="text-cyan-400" /> 頭のクリアさ <span className="ml-auto text-sm text-gray-400">{brainClarity}%</span></label>
           <input type="range" min="0" max="100" value={brainClarity} onChange={(e) => setBrainClarity(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-cyan-500 mt-2" />
         </div>
         <div>
-          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Dumbbell size={20} className="text-rose-400" /> {isRolandMode ? "肉体のナマり具合" : "感覚的な運動不足感"} <span className="ml-auto text-sm text-gray-400">{exerciseDeficiency}%</span></label>
+          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Dumbbell size={20} className="text-rose-400" /> 運動不足感 <span className="ml-auto text-sm text-gray-400">{exerciseDeficiency}%</span></label>
           <input type="range" min="0" max="100" value={exerciseDeficiency} onChange={(e) => setExerciseDeficiency(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-rose-500 mt-2" />
         </div>
       </div>
@@ -410,7 +411,7 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-3">
           <BrainCircuit size={20} className={isRolandMode ? "text-yellow-500" : "text-teal-500"} /> 
-          {isRolandMode ? "帝王の哲学" : "思考のパーキングロット（退避場所）"}
+          思考のパーキングロット
         </label>
         <div className={`mb-3 flex gap-2 items-start text-sm p-3 rounded-xl border-l-4 ${isRolandMode ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400' : 'bg-gray-50 dark:bg-gray-900/40 border-teal-400'}`}>
           <Lightbulb size={16} className={`mt-0.5 flex-shrink-0 ${isRolandMode ? 'text-yellow-500' : 'text-teal-500'}`} />
@@ -419,7 +420,7 @@ export default function App() {
         <textarea 
           value={reflection} 
           onChange={(e) => setReflection(e.target.value)} 
-          placeholder={isRolandMode ? "世界に響かせる言葉を..." : "作業中に急に浮かんだ邪魔な思考や、今の気持ちをここに吐き出して脳を空っぽにしよう！"} 
+          placeholder="作業中に急に浮かんだ邪魔な思考や、今の気持ちをここに吐き出して脳を空っぽにしよう！" 
           className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-24" 
         />
       </div>
@@ -631,7 +632,6 @@ export default function App() {
           </div>
         )}
 
-        {/* データバックアップ・復元エリア */}
         <div className="mt-8 p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <Activity size={16} className="text-gray-500" /> データ管理
@@ -660,7 +660,6 @@ export default function App() {
   };
 
   return (
-    // ★ はみ出し防止（overflow-x-hidden）を一番外側のコンテナに追加
     <div className="min-h-screen bg-stone-50 dark:bg-gray-950 font-sans flex justify-center text-gray-900 dark:text-gray-100 overflow-x-hidden transition-colors duration-300">
       <div className="w-full max-w-md bg-stone-50 dark:bg-gray-900 min-h-screen flex flex-col relative shadow-2xl overflow-x-hidden">
         
