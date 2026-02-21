@@ -47,7 +47,6 @@ export default function App() {
 
   const fileInputRef = useRef(null);
 
-  // --- 入力フォーム用（表用） ---
   const [mood, setMood] = useState(3);
   const [condition, setCondition] = useState(50);
   const [progress, setProgress] = useState(50);
@@ -60,12 +59,10 @@ export default function App() {
   const [selfishness, setSelfishness] = useState(80); 
   const [reflection, setReflection] = useState(''); 
   
-  // --- 入力フォーム用（裏用） ---
   const [humanAnnoyance, setHumanAnnoyance] = useState(50);
   const [blameScale, setBlameScale] = useState(50);
   const [note, setNote] = useState(''); 
   
-  // --- 仕事・転職管理用ステート ---
   const [workIdeas, setWorkIdeas] = useState(""); 
   const [workDissatisfaction, setWorkDissatisfaction] = useState("無駄な人間関係。時間が縛られること。");
   const [workHope, setWorkHope] = useState("完全在宅。AIを活用して自分のペースで稼ぐ。");
@@ -81,7 +78,6 @@ export default function App() {
   const [randomPhrase, setRandomPhrase] = useState(robotPhrases[0]);
   const [dailyQuestion, setDailyQuestion] = useState("");
 
-  // ダークモードの切り替えをhtmlタグに反映させる
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -90,7 +86,6 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // 初期読み込み
   useEffect(() => {
     const savedEntries = localStorage.getItem('kokoro_entries_v4');
     if (savedEntries) setEntries(JSON.parse(savedEntries));
@@ -172,9 +167,7 @@ export default function App() {
       date: now.toISOString(),
       displayDate: `${now.getMonth() + 1}/${now.getDate()}`,
       displayTime: `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`,
-      mood, 
-      condition, 
-      isSecret: isSecretMode,
+      mood, condition, isSecret: isSecretMode,
       ...(isSecretMode 
         ? { humanAnnoyance, blameScale, note } 
         : { progress, speed, sleep, sleepQuality, exerciseDeficiency, brainClarity, location, selfishness, reflection, isRoland: isRolandMode } 
@@ -186,11 +179,7 @@ export default function App() {
     localStorage.setItem('kokoro_entries_v4', JSON.stringify(updatedEntries));
 
     triggerToast(isSecretMode ? '本音を封印しました！' : '状態を記録しました！');
-    if (isSecretMode) {
-      setNote('');
-    } else {
-      setReflection('');
-    }
+    if (isSecretMode) { setNote(''); } else { setReflection(''); }
   };
 
   const exportData = () => {
@@ -217,7 +206,6 @@ export default function App() {
     reader.onload = (e) => {
       try {
         const importedData = JSON.parse(e.target.result);
-        
         if (importedData.entries) {
           setEntries(importedData.entries);
           localStorage.setItem('kokoro_entries_v4', JSON.stringify(importedData.entries));
@@ -244,22 +232,17 @@ export default function App() {
   const handleDeleteAllData = () => {
     if (window.confirm("【警告】すべてのデータを消去しますか？\n※「OK」を押すと、まず自動でバックアップがダウンロードされ、その後データが消去されます。")) {
       exportData();
-      
       setTimeout(() => {
         localStorage.removeItem('kokoro_entries_v4');
         localStorage.removeItem('work_ideas');
         localStorage.removeItem('work_dissatisfaction');
         localStorage.removeItem('work_hope');
         localStorage.removeItem('work_tasks');
-        
-        setEntries([]);
-        setWorkIdeas("");
-        setWorkTasks([]);
+        setEntries([]); setWorkIdeas(""); setWorkTasks([]);
         triggerToast("データを全消去しました。");
       }, 1000);
     }
   };
-
 
   const generateRobotPhrase = () => setRandomPhrase(robotPhrases[Math.floor(Math.random() * robotPhrases.length)]);
 
@@ -285,7 +268,7 @@ export default function App() {
   }
 
   const renderWorkTab = () => (
-    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-28">
+    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-8">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
           <Briefcase className="text-emerald-500" /> 仕事・転職ベース
@@ -326,9 +309,9 @@ export default function App() {
         <div className="space-y-3">
           {workTasks.map(task => (
             <div key={task.id} className="flex items-center gap-3">
-              <input type="checkbox" checked={task.done} onChange={(e) => updateWorkTask(task.id, 'done', e.target.checked)} className="w-5 h-5 accent-emerald-500 rounded cursor-pointer" />
-              <input type="text" value={task.text} onChange={(e) => updateWorkTask(task.id, 'text', e.target.value)} className={`flex-1 bg-transparent border-b border-gray-100 dark:border-gray-700 text-sm outline-none py-1 ${task.done ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-200'}`} placeholder="クラウドワークスの案件名などを入力" />
-              <button onClick={() => deleteWorkTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16} /></button>
+              <input type="checkbox" checked={task.done} onChange={(e) => updateWorkTask(task.id, 'done', e.target.checked)} className="w-5 h-5 accent-emerald-500 rounded cursor-pointer flex-shrink-0" />
+              <input type="text" value={task.text} onChange={(e) => updateWorkTask(task.id, 'text', e.target.value)} className={`flex-1 min-w-0 bg-transparent border-b border-gray-100 dark:border-gray-700 text-sm outline-none py-1 ${task.done ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-200'}`} placeholder="クラウドワークスの案件名などを入力" />
+              <button onClick={() => deleteWorkTask(task.id)} className="text-gray-400 hover:text-red-500 flex-shrink-0"><Trash2 size={16} /></button>
             </div>
           ))}
           {workTasks.length === 0 && <p className="text-xs text-gray-400">タスクがありません。</p>}
@@ -338,14 +321,14 @@ export default function App() {
   );
 
   const renderFrontInput = () => (
-    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-28">
+    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-8">
       <div className={`p-4 rounded-2xl shadow-sm border ${isRolandMode ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border-yellow-200 dark:border-yellow-700/50' : 'bg-gradient-to-r from-teal-50 to-blue-50 dark:from-teal-900/20 dark:to-blue-900/20 border-teal-100 dark:border-teal-800/50'}`}>
         <div className={`flex items-center gap-2 font-bold mb-2 ${isRolandMode ? 'text-yellow-700 dark:text-yellow-400' : 'text-teal-700 dark:text-teal-400'}`}>
           {isRolandMode ? <Crown size={18} /> : <Compass size={18} />}<span>{isRolandMode ? "俺の美学" : "私の北極星"}</span>
         </div>
         {isEditingStar ? (
           <div className="flex gap-2">
-            <input value={guidingStarFront} onChange={(e) => setGuidingStarFront(e.target.value)} className="flex-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm p-2 rounded-lg border outline-none" />
+            <input value={guidingStarFront} onChange={(e) => setGuidingStarFront(e.target.value)} className="flex-1 min-w-0 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm p-2 rounded-lg border outline-none" />
             <button onClick={handleSaveGuidingStar} className={`text-white px-3 py-1 text-sm rounded-lg font-bold ${isRolandMode ? 'bg-yellow-600' : 'bg-teal-500'}`}>完了</button>
           </div>
         ) : (
@@ -369,9 +352,6 @@ export default function App() {
           <Crown size={20} className="text-pink-400" /> {isRolandMode ? "唯我独尊メーター" : "自己中度合い"} <span className="ml-auto text-sm text-gray-400">{selfishness}%</span>
         </label>
         <input type="range" min="0" max="100" value={selfishness} onChange={(e) => setSelfishness(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-pink-500 mt-2" />
-        <div className="flex justify-between text-xs text-gray-400 mt-2 font-medium">
-          <span>他人に振り回された</span><span>完全俺様ペース</span>
-        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -420,7 +400,7 @@ export default function App() {
         <textarea 
           value={reflection} 
           onChange={(e) => setReflection(e.target.value)} 
-          placeholder="作業中に急に浮かんだ邪魔な思考や、今の気持ちをここに吐き出して脳を空っぽにしよう！" 
+          placeholder={isRolandMode ? "世界に響かせる言葉を..." : "邪魔な思考をここに吐き出して脳を空っぽにしよう！"} 
           className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-24" 
         />
       </div>
@@ -428,14 +408,14 @@ export default function App() {
   );
 
   const renderBackInput = () => (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-28">
+    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-8">
       <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 p-4 rounded-2xl shadow-sm border border-red-100 dark:border-red-800/50">
         <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold mb-2">
           <Compass size={18} /><span>俺の絶対的ルール（北極星）</span>
         </div>
         {isEditingStar ? (
           <div className="flex gap-2">
-            <input value={guidingStarBack} onChange={(e) => setGuidingStarBack(e.target.value)} className="flex-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm p-2 rounded-lg border outline-none" />
+            <input value={guidingStarBack} onChange={(e) => setGuidingStarBack(e.target.value)} className="flex-1 min-w-0 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm p-2 rounded-lg border outline-none" />
             <button onClick={handleSaveGuidingStar} className="bg-red-500 text-white px-3 py-1 text-sm rounded-lg font-bold">完了</button>
           </div>
         ) : (
@@ -478,14 +458,9 @@ export default function App() {
     const filteredEntries = entries.filter(e => {
       const isCorrectMode = isSecretMode ? e.isSecret : !e.isSecret;
       if (!isCorrectMode) return false;
-      
       const entryDate = new Date(e.date);
-      if (chartSpan === 'today') {
-        return entryDate.toDateString() === now.toDateString();
-      } else if (chartSpan === 'week') {
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return entryDate >= oneWeekAgo;
-      }
+      if (chartSpan === 'today') return entryDate.toDateString() === now.toDateString();
+      if (chartSpan === 'week') return entryDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       return true;
     });
 
@@ -500,16 +475,15 @@ export default function App() {
     if (filteredEntries.length === 0) return <div className="p-8 flex flex-col items-center justify-center h-full"><p className="text-gray-500 mb-4">この期間のデータがありません</p>{renderSpanButtons()}</div>;
     
     const graphData = [...filteredEntries].reverse().map(d => ({
-      ...d,
-      chartLabel: chartSpan === 'today' ? d.displayTime : `${d.displayDate} ${d.displayTime}`
+      ...d, chartLabel: chartSpan === 'today' ? d.displayTime : `${d.displayDate} ${d.displayTime}`
     }));
 
     return (
-      <div className="p-4 space-y-6 animate-in fade-in pb-28">
+      <div className="p-4 space-y-6 animate-in fade-in pb-8">
         {renderSpanButtons()}
         {isSecretMode ? (
           <>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
               <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-4 flex items-center gap-2"><ShieldAlert size={16} className="text-red-400" />人間うざい度 と 気分</h3>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -524,7 +498,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
               <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-2 flex items-center gap-2"><BrainCircuit size={16} className="text-purple-400" />自己嫌悪 vs 他責の波</h3>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -541,7 +515,7 @@ export default function App() {
           </>
         ) : (
           <>
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
               <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-4 flex items-center gap-2"><Crown size={16} className="text-pink-400" />自己中度 と 気分</h3>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -556,8 +530,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
             </div>
-            
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
               <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-4 flex items-center gap-2"><Wind size={16} className="text-cyan-400" />脳のクリアさ vs 運動不足</h3>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -581,7 +554,7 @@ export default function App() {
     const filteredEntries = entries.filter(e => isSecretMode ? e.isSecret : !e.isSecret);
     
     return (
-      <div className="p-4 space-y-4 animate-in fade-in pb-28">
+      <div className="p-4 space-y-4 animate-in fade-in pb-8">
         {filteredEntries.length === 0 ? (
           <div className="p-8 flex items-center justify-center"><p className="text-gray-500">まだ記録がありません</p></div>
         ) : (
@@ -592,14 +565,14 @@ export default function App() {
                   <div className="bg-orange-50 dark:bg-gray-700 p-3 rounded-full flex-shrink-0">
                     {getMoodIcon(entry.mood, 28)}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                         <Clock size={14} className="text-orange-400"/> {entry.displayDate} {entry.displayTime || ''}
                       </span>
                       {entry.location && (
-                        <span className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-100 dark:border-emerald-800">
-                          <MapPin size={10} /> {entry.location}
+                        <span className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-100 dark:border-emerald-800 whitespace-nowrap overflow-hidden text-ellipsis">
+                          <MapPin size={10} className="flex-shrink-0" /> {entry.location}
                         </span>
                       )}
                     </div>
@@ -659,20 +632,21 @@ export default function App() {
     );
   };
 
+  // ★ レイアウトを「スマホ完全固定・はみ出し絶対防止」の最強の箱に修正
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-gray-950 font-sans flex justify-center text-gray-900 dark:text-gray-100 overflow-x-hidden transition-colors duration-300">
-      <div className="w-full max-w-md bg-stone-50 dark:bg-gray-900 min-h-screen flex flex-col relative shadow-2xl overflow-x-hidden">
+    <div className="w-screen bg-stone-50 dark:bg-gray-950 font-sans flex justify-center text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300" style={{ height: '100dvh' }}>
+      <div className="w-full max-w-md bg-stone-50 dark:bg-gray-900 h-full flex flex-col relative shadow-2xl overflow-hidden">
         
-        <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md pt-6 pb-4 px-4 sticky top-0 z-10 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between transition-colors">
+        <header className="flex-none bg-white/80 dark:bg-gray-900/80 backdrop-blur-md pt-safe pt-6 pb-4 px-4 z-10 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between transition-colors">
           <h1 
             onClick={handleSecretTap}
             className={`text-xl font-extrabold bg-gradient-to-r ${isSecretMode ? 'from-red-500 to-orange-500' : (isRolandMode ? 'from-yellow-400 to-amber-600' : 'from-orange-500 to-pink-500')} bg-clip-text text-transparent flex items-center gap-2 cursor-pointer select-none`}
           >
-            {isSecretMode ? <ShieldAlert size={24} className="text-red-500" /> : (isRolandMode ? <Crown size={24} className="text-yellow-500" /> : <Activity size={24} className="text-orange-500" />)}
-            {isSecretMode ? '自己管理アプリ (裏)' : (isRolandMode ? '帝王のキロク' : '自己管理アプリ')}
+            {isSecretMode ? <ShieldAlert size={24} className="text-red-500 flex-shrink-0" /> : (isRolandMode ? <Crown size={24} className="text-yellow-500 flex-shrink-0" /> : <Activity size={24} className="text-orange-500 flex-shrink-0" />)}
+            <span className="truncate">{isSecretMode ? '自己管理アプリ (裏)' : (isRolandMode ? '帝王のキロク' : '自己管理アプリ')}</span>
           </h1>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {!isSecretMode && (
               <button onClick={toggleRolandMode} className={`p-2 rounded-full transition-colors ${isRolandMode ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/50 dark:text-yellow-400' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700'}`}>
                 <Crown size={20} />
@@ -688,7 +662,7 @@ export default function App() {
           {activeTab === 'input' && (
             <>
               {isSecretMode ? renderBackInput() : renderFrontInput()}
-              <div className="px-4 pb-28 pt-2">
+              <div className="px-4 pb-8 pt-2">
                 <button 
                   onClick={handleSave} 
                   className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 
@@ -705,14 +679,15 @@ export default function App() {
           {activeTab === 'history' && renderHistory()}
         </main>
 
+        {/* トーストの位置を絶対配置に変更して、はみ出しを防止 */}
         {showToast && (
-          <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-in fade-in z-50 whitespace-nowrap">
+          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-in fade-in z-50 whitespace-nowrap">
             <CheckCircle2 size={18} className={isSecretMode ? "text-red-400" : (isRolandMode ? "text-yellow-400" : "text-green-400")} />
             {toastMessage}
           </div>
         )}
 
-        <nav className="fixed bottom-0 w-full max-w-md bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.03)] z-20 transition-colors">
+        <nav className="flex-none w-full bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.03)] z-20 transition-colors">
           <div className="flex justify-around items-center h-16 px-1">
             <button onClick={() => setActiveTab('input')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'input' ? (isSecretMode ? 'text-red-500' : (isRolandMode ? 'text-yellow-600' : 'text-orange-500')) : 'text-gray-400'}`}>
               <PenTool size={20} className={activeTab === 'input' ? (isSecretMode ? 'fill-red-900/50' : (isRolandMode ? 'fill-yellow-900/50' : 'fill-orange-100 dark:fill-orange-900/50')) : ''} />
