@@ -79,6 +79,19 @@ export default function App() {
   const [dailyQuestion, setDailyQuestion] = useState("");
 
   useEffect(() => {
+    if (!document.getElementById('tailwind-script')) {
+      const script = document.createElement('script');
+      script.id = 'tailwind-script';
+      script.src = "https://cdn.tailwindcss.com";
+      document.head.appendChild(script);
+
+      const configScript = document.createElement('script');
+      configScript.innerHTML = `tailwind.config = { darkMode: 'class' }`;
+      document.head.appendChild(configScript);
+    }
+  }, []);
+
+  useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -267,6 +280,7 @@ export default function App() {
     );
   }
 
+  // ★各タブのレンダリングから、余計な pb-28 などの下部余白を削除しました。
   const renderWorkTab = () => (
     <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-8">
       <div className="flex justify-between items-center mb-2">
@@ -352,6 +366,9 @@ export default function App() {
           <Crown size={20} className="text-pink-400" /> {isRolandMode ? "唯我独尊メーター" : "自己中度合い"} <span className="ml-auto text-sm text-gray-400">{selfishness}%</span>
         </label>
         <input type="range" min="0" max="100" value={selfishness} onChange={(e) => setSelfishness(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-pink-500 mt-2" />
+        <div className="flex justify-between text-xs text-gray-400 mt-2 font-medium">
+          <span>他人に振り回された</span><span>完全俺様ペース</span>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -404,6 +421,18 @@ export default function App() {
           className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-24" 
         />
       </div>
+      
+      {/* 保存ボタンをコンテンツの一番下に配置（浮かせるのをやめました） */}
+      <div className="pt-2">
+        <button 
+          onClick={handleSave} 
+          className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 
+            ${isSecretMode ? 'bg-red-500 hover:bg-red-600' : (isRolandMode ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700' : 'bg-orange-500 hover:bg-orange-600')}`}
+        >
+          {isSecretMode ? <ShieldAlert size={20} /> : (isRolandMode ? <Crown size={20} /> : <Activity size={20} />)}
+          {isSecretMode ? '本音を封印する' : (isRolandMode ? '歴史を刻む' : '状態を記録する')}
+        </button>
+      </div>
     </div>
   );
 
@@ -449,6 +478,15 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-3"><PenTool size={20} className="text-red-500" /> 本音ダンプ</label>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="あいつマジでうざい..." className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-32" />
+      </div>
+
+      <div className="pt-2">
+        <button 
+          onClick={handleSave} 
+          className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2"
+        >
+          <ShieldAlert size={20} /> 本音を封印する
+        </button>
       </div>
     </div>
   );
@@ -530,6 +568,7 @@ export default function App() {
                 </ResponsiveContainer>
               </div>
             </div>
+            
             <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
               <h3 className="text-sm font-bold text-gray-600 dark:text-gray-300 mb-4 flex items-center gap-2"><Wind size={16} className="text-cyan-400" />脳のクリアさ vs 運動不足</h3>
               <div className="h-64 w-full">
@@ -605,6 +644,7 @@ export default function App() {
           </div>
         )}
 
+        {/* データバックアップ・復元エリア */}
         <div className="mt-8 p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <Activity size={16} className="text-gray-500" /> データ管理
@@ -632,11 +672,12 @@ export default function App() {
     );
   };
 
-  // ★ レイアウトを「スマホ完全固定・はみ出し絶対防止」の最強の箱に修正
+  // ★ 箱の作り方を「fixed inset-0」に変更し、ナビゲーションバーを「flex-none」として完全に枠内に収めました
   return (
-    <div className="w-screen bg-stone-50 dark:bg-gray-950 font-sans flex justify-center text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300" style={{ height: '100dvh' }}>
-      <div className="w-full max-w-md bg-stone-50 dark:bg-gray-900 h-full flex flex-col relative shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 flex justify-center bg-stone-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      <div className="w-full max-w-md bg-stone-50 dark:bg-gray-900 h-full flex flex-col shadow-2xl relative">
         
+        {/* ヘッダー（固定） */}
         <header className="flex-none bg-white/80 dark:bg-gray-900/80 backdrop-blur-md pt-safe pt-6 pb-4 px-4 z-10 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between transition-colors">
           <h1 
             onClick={handleSecretTap}
@@ -658,28 +699,15 @@ export default function App() {
           </div>
         </header>
 
+        {/* メインコンテンツ（この中だけがスクロールする） */}
         <main className="flex-1 overflow-y-auto">
-          {activeTab === 'input' && (
-            <>
-              {isSecretMode ? renderBackInput() : renderFrontInput()}
-              <div className="px-4 pb-8 pt-2">
-                <button 
-                  onClick={handleSave} 
-                  className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 
-                    ${isSecretMode ? 'bg-red-500 hover:bg-red-600' : (isRolandMode ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700' : 'bg-orange-500 hover:bg-orange-600')}`}
-                >
-                  {isSecretMode ? <ShieldAlert size={20} /> : (isRolandMode ? <Crown size={20} /> : <Activity size={20} />)}
-                  {isSecretMode ? '本音を封印する' : (isRolandMode ? '歴史を刻む' : '状態を記録する')}
-                </button>
-              </div>
-            </>
-          )}
+          {activeTab === 'input' && (isSecretMode ? renderBackInput() : renderFrontInput())}
           {activeTab === 'work' && renderWorkTab()}
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'history' && renderHistory()}
         </main>
 
-        {/* トーストの位置を絶対配置に変更して、はみ出しを防止 */}
+        {/* トースト通知 */}
         {showToast && (
           <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-in fade-in z-50 whitespace-nowrap">
             <CheckCircle2 size={18} className={isSecretMode ? "text-red-400" : (isRolandMode ? "text-yellow-400" : "text-green-400")} />
@@ -687,7 +715,8 @@ export default function App() {
           </div>
         )}
 
-        <nav className="flex-none w-full bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 pb-safe shadow-[0_-10px_20px_rgba(0,0,0,0.03)] z-20 transition-colors">
+        {/* ナビゲーションバー（固定） */}
+        <nav className="flex-none w-full bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 pb-safe z-20 transition-colors">
           <div className="flex justify-around items-center h-16 px-1">
             <button onClick={() => setActiveTab('input')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'input' ? (isSecretMode ? 'text-red-500' : (isRolandMode ? 'text-yellow-600' : 'text-orange-500')) : 'text-gray-400'}`}>
               <PenTool size={20} className={activeTab === 'input' ? (isSecretMode ? 'fill-red-900/50' : (isRolandMode ? 'fill-yellow-900/50' : 'fill-orange-100 dark:fill-orange-900/50')) : ''} />
