@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine
 } from 'recharts';
@@ -6,7 +6,7 @@ import {
   PenTool, BarChart3, List as ListIcon, ShieldAlert,
   Smile, Frown, Meh, Heart, Zap, Clock, CheckCircle2, Activity,
   Moon, Sun, Loader2, BedDouble, Sparkles, BrainCircuit, Compass, Bot, Lightbulb,
-  Crown, MapPin, Dumbbell, Wind, Target, Briefcase, Plus, Trash2
+  Crown, MapPin, Dumbbell, Wind, Briefcase, Plus, Trash2, Download, Upload, MessageSquarePlus
 } from 'lucide-react';
 
 const robotPhrases = [
@@ -29,20 +29,21 @@ const rolandQuestions = [
   "自信を持てとは言わない。俺の背中を見ろ、と言いたい。今の調子はどうだ？"
 ];
 
-// ★ 筋トレとバイクを追加！
 const locationTags = ["🏠 自宅", "☕️ カフェ", "💪 部屋で筋トレ", "🏍️ バイクで流す", "🚶‍♂️ 夜散歩"];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('input');
+  const [activeTab, setActiveTab] = useState('input'); // input, work, dashboard, history
   const [entries, setEntries] = useState([]);
-  const [projects, setProjects] = useState([]);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isSecretMode, setIsSecretMode] = useState(false);
   const [isRolandMode, setIsRolandMode] = useState(false);
   const [tapCount, setTapCount] = useState(0);
+
+  const fileInputRef = useRef(null);
 
   // --- 入力フォーム用（表用） ---
   const [mood, setMood] = useState(3);
@@ -62,6 +63,15 @@ export default function App() {
   const [blameScale, setBlameScale] = useState(50);
   const [note, setNote] = useState(''); 
   
+  // --- 仕事・転職管理用ステート ---
+  const [workIdeas, setWorkIdeas] = useState(""); // アイデア書き出し用
+  const [workDissatisfaction, setWorkDissatisfaction] = useState("無駄な人間関係。時間が縛られること。");
+  const [workHope, setWorkHope] = useState("完全在宅。AIを活用して自分のペースで稼ぐ。");
+  const [workTasks, setWorkTasks] = useState([
+    { id: '1', text: 'クラウドワークスで良さげな案件を3つ探す', done: false },
+    { id: '2', text: 'AIを使ってプロフィール文を考えてもらう', done: false }
+  ]);
+  
   const [guidingStarFront, setGuidingStarFront] = useState("とにかく心身ともに健康でいる");
   const [guidingStarBack, setGuidingStarBack] = useState("自分の利益と平和が最優先。他人は知らん。");
   const [isEditingStar, setIsEditingStar] = useState(false);
@@ -69,34 +79,20 @@ export default function App() {
   const [randomPhrase, setRandomPhrase] = useState(robotPhrases[0]);
   const [dailyQuestion, setDailyQuestion] = useState("");
 
+  // 初期読み込み
   useEffect(() => {
     const savedEntries = localStorage.getItem('kokoro_entries_v4');
     if (savedEntries) setEntries(JSON.parse(savedEntries));
     
-    const savedProjects = localStorage.getItem('kokoro_projects_v2');
-    if (savedProjects) {
-      setProjects(JSON.parse(savedProjects));
-    } else {
-      // ★ 初期プロジェクトをユーザーの目標に合わせたサンプルに変更
-      setProjects([
-        {
-          id: '1',
-          title: '🤖 仕事AI自動化プロジェクト',
-          progress: 5,
-          currentDissatisfaction: '自分がやらなくてもいい作業に時間を奪われている。',
-          nextHope: 'AIエージェントに雑務を丸投げして、俺は楽をする。',
-          tasks: [{ id: 't1', text: '今の業務で自動化できそうなリストを作る', done: false }]
-        },
-        {
-          id: '2',
-          title: '🏠 一人暮らし（完全な自由）計画',
-          progress: 10,
-          currentDissatisfaction: '引きこもりがちで他人の目が気になる。干渉されたくない。',
-          nextHope: '誰にも邪魔されない、俺ルールだけで生きていける空間の確保。',
-          tasks: [{ id: 't3', text: '月々の最低必要コストを計算してみる', done: false }]
-        }
-      ]);
-    }
+    // 仕事・転職データの読み込み
+    const savedWorkIdeas = localStorage.getItem('work_ideas');
+    if (savedWorkIdeas) setWorkIdeas(savedWorkIdeas);
+    const savedWorkDis = localStorage.getItem('work_dissatisfaction');
+    if (savedWorkDis) setWorkDissatisfaction(savedWorkDis);
+    const savedWorkHope = localStorage.getItem('work_hope');
+    if (savedWorkHope) setWorkHope(savedWorkHope);
+    const savedWorkTasks = localStorage.getItem('work_tasks');
+    if (savedWorkTasks) setWorkTasks(JSON.parse(savedWorkTasks));
 
     const savedStarF = localStorage.getItem('kokoro_star_front');
     if (savedStarF) setGuidingStarFront(savedStarF);
@@ -125,9 +121,10 @@ export default function App() {
     }
   }, []);
 
-  const saveProjectsToLocal = (newProjects) => {
-    setProjects(newProjects);
-    localStorage.setItem('kokoro_projects_v2', JSON.stringify(newProjects));
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
   };
 
   const handleSecretTap = () => {
@@ -135,7 +132,7 @@ export default function App() {
     if (tapCount + 1 >= 3) {
       setIsSecretMode(!isSecretMode);
       setTapCount(0);
-      if(activeTab === 'projects') setActiveTab('input');
+      if(activeTab === 'work') setActiveTab('input');
     }
     setTimeout(() => setTapCount(0), 1000);
   };
@@ -153,6 +150,29 @@ export default function App() {
       localStorage.setItem('kokoro_star_front', guidingStarFront);
     }
     setIsEditingStar(false);
+  };
+
+  // --- 仕事・転職データの保存関数 ---
+  const saveWorkData = () => {
+    localStorage.setItem('work_ideas', workIdeas);
+    localStorage.setItem('work_dissatisfaction', workDissatisfaction);
+    localStorage.setItem('work_hope', workHope);
+    localStorage.setItem('work_tasks', JSON.stringify(workTasks));
+    triggerToast("仕事の計画を保存しました！");
+  };
+
+  const addWorkTask = () => {
+    const newTask = { id: Date.now().toString(), text: '', done: false };
+    setWorkTasks([...workTasks, newTask]);
+  };
+
+  const updateWorkTask = (id, field, value) => {
+    const updated = workTasks.map(t => t.id === id ? { ...t, [field]: value } : t);
+    setWorkTasks(updated);
+  };
+
+  const deleteWorkTask = (id) => {
+    setWorkTasks(workTasks.filter(t => t.id !== id));
   };
 
   const handleSave = () => {
@@ -175,14 +195,62 @@ export default function App() {
     setEntries(updatedEntries);
     localStorage.setItem('kokoro_entries_v4', JSON.stringify(updatedEntries));
 
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
+    triggerToast(isSecretMode ? '本音を封印しました！' : '状態を記録しました！');
     if (isSecretMode) {
       setNote('');
     } else {
       setReflection('');
     }
   };
+
+  const exportData = () => {
+    const backupData = {
+      entries,
+      workData: { workIdeas, workDissatisfaction, workHope, workTasks },
+      settings: { guidingStarFront, guidingStarBack, isRolandMode }
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `self_management_backup_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    triggerToast("バックアップ用ファイルを生成しました！");
+  };
+
+  const importData = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        
+        if (importedData.entries) {
+          setEntries(importedData.entries);
+          localStorage.setItem('kokoro_entries_v4', JSON.stringify(importedData.entries));
+        }
+        if (importedData.workData) {
+          setWorkIdeas(importedData.workData.workIdeas || "");
+          setWorkDissatisfaction(importedData.workData.workDissatisfaction || "");
+          setWorkHope(importedData.workData.workHope || "");
+          setWorkTasks(importedData.workData.workTasks || []);
+        }
+        if (importedData.settings) {
+          if(importedData.settings.guidingStarFront) setGuidingStarFront(importedData.settings.guidingStarFront);
+          if(importedData.settings.guidingStarBack) setGuidingStarBack(importedData.settings.guidingStarBack);
+        }
+        triggerToast("データを復元しました！");
+      } catch (error) {
+        alert("ファイルの読み込みに失敗しました。");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
 
   const generateRobotPhrase = () => setRandomPhrase(robotPhrases[Math.floor(Math.random() * robotPhrases.length)]);
 
@@ -207,115 +275,65 @@ export default function App() {
     );
   }
 
-  const renderProjects = () => {
-    const addNewProject = () => {
-      const newProj = {
-        id: Date.now().toString(),
-        title: '新規プロジェクト',
-        progress: 0,
-        currentDissatisfaction: '',
-        nextHope: '',
-        tasks: []
-      };
-      saveProjectsToLocal([newProj, ...projects]);
-    };
-
-    const updateProject = (id, field, value) => {
-      const updated = projects.map(p => p.id === id ? { ...p, [field]: value } : p);
-      saveProjectsToLocal(updated);
-    };
-
-    const deleteProject = (id) => {
-      if(window.confirm('このプロジェクトを削除しますか？')) {
-        saveProjectsToLocal(projects.filter(p => p.id !== id));
-      }
-    };
-
-    const addTask = (projectId) => {
-      const updated = projects.map(p => {
-        if (p.id === projectId) {
-          return { ...p, tasks: [...p.tasks, { id: Date.now().toString(), text: '', done: false }] };
-        }
-        return p;
-      });
-      saveProjectsToLocal(updated);
-    };
-
-    const updateTask = (projectId, taskId, field, value) => {
-      const updated = projects.map(p => {
-        if (p.id === projectId) {
-          const newTasks = p.tasks.map(t => t.id === taskId ? { ...t, [field]: value } : t);
-          return { ...p, tasks: newTasks };
-        }
-        return p;
-      });
-      saveProjectsToLocal(updated);
-    };
-
-    return (
-      <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-24">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-            <Target className="text-emerald-500" /> マイプロジェクト
-          </h2>
-          <button onClick={addNewProject} className="p-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-full hover:bg-emerald-200">
-            <Plus size={20} />
-          </button>
-        </div>
-
-        {projects.length === 0 ? (
-          <div className="text-center py-10 text-gray-500">プロジェクトがありません。<br/>右上の＋ボタンから追加しましょう！</div>
-        ) : (
-          projects.map(proj => (
-            <div key={proj.id} className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-emerald-50 dark:border-gray-700 space-y-4">
-              <div className="flex justify-between items-start gap-2">
-                <input 
-                  type="text" value={proj.title} onChange={(e) => updateProject(proj.id, 'title', e.target.value)}
-                  className="font-bold text-lg bg-transparent border-b border-transparent focus:border-emerald-300 outline-none text-gray-800 dark:text-gray-100 w-full transition-colors"
-                  placeholder="プロジェクト名"
-                />
-                <button onClick={() => deleteProject(proj.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16} /></button>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                  <span>進捗状況</span><span>{proj.progress}%</span>
-                </div>
-                <input type="range" min="0" max="100" value={proj.progress} onChange={(e) => updateProject(proj.id, 'progress', parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-emerald-500" />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <div className="bg-red-50 dark:bg-red-900/10 p-3 rounded-xl border border-red-100 dark:border-red-900/30">
-                  <label className="text-xs font-bold text-red-600 dark:text-red-400 mb-1 block">今の不満・クソな所 (モチベ源)</label>
-                  <textarea value={proj.currentDissatisfaction} onChange={(e) => updateProject(proj.id, 'currentDissatisfaction', e.target.value)} className="w-full bg-transparent border-none text-sm outline-none resize-none h-16 text-gray-700 dark:text-gray-300" placeholder="書き出してスッキリしよう" />
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-xl border border-blue-100 dark:border-blue-900/30">
-                  <label className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-1 block">次の絶対条件・希望 (北極星)</label>
-                  <textarea value={proj.nextHope} onChange={(e) => updateProject(proj.id, 'nextHope', e.target.value)} className="w-full bg-transparent border-none text-sm outline-none resize-none h-16 text-gray-700 dark:text-gray-300" placeholder="妥協しない条件は？" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center justify-between mb-2">
-                  <span>タスク / 次のアクション</span>
-                  <button onClick={() => addTask(proj.id)} className="text-emerald-500 flex items-center gap-1"><Plus size={12}/> 追加</button>
-                </label>
-                <div className="space-y-2">
-                  {proj.tasks.map(task => (
-                    <div key={task.id} className="flex items-center gap-2">
-                      <input type="checkbox" checked={task.done} onChange={(e) => updateTask(proj.id, task.id, 'done', e.target.checked)} className="w-4 h-4 accent-emerald-500 rounded" />
-                      <input type="text" value={task.text} onChange={(e) => updateTask(proj.id, task.id, 'text', e.target.value)} className={`flex-1 bg-transparent border-b border-gray-100 dark:border-gray-700 text-sm outline-none ${task.done ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-200'}`} placeholder="タスクを入力" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-          ))
-        )}
+  // --- 仕事・転職タブ ---
+  const renderWorkTab = () => (
+    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-24">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+          <Briefcase className="text-emerald-500" /> 仕事・転職ベース
+        </h2>
+        <button onClick={saveWorkData} className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold py-1.5 px-4 rounded-xl transition-colors">
+          保存
+        </button>
       </div>
-    );
-  };
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">現状を変えるためのアイデアやタスクをここに集約しよう。</p>
+
+      {/* アイデアブレインストーミング */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-emerald-50 dark:border-gray-700">
+        <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-bold mb-3">
+          <MessageSquarePlus size={20} className="text-emerald-400" /> 
+          アイデア・ブレスト置き場
+        </label>
+        <p className="text-xs text-gray-400 mb-2">AIで自動化できそうな事、やってみたい仕事、思いついた案をどんどん書き殴る場所。</p>
+        <textarea 
+          value={workIdeas} 
+          onChange={(e) => setWorkIdeas(e.target.value)} 
+          placeholder="・AIにブログ記事を書かせてみる&#10;・クラウドワークスでデータ入力の案件を探す..." 
+          className="w-full bg-emerald-50/50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-40 transition-colors" 
+        />
+      </div>
+
+      {/* 不満と希望の明確化 */}
+      <div className="grid grid-cols-1 gap-4">
+        <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-3xl border border-red-100 dark:border-red-900/30">
+          <label className="text-sm font-bold text-red-600 dark:text-red-400 mb-2 block">今の仕事の不満 (反骨心の源)</label>
+          <textarea value={workDissatisfaction} onChange={(e) => setWorkDissatisfaction(e.target.value)} className="w-full bg-transparent border-none text-sm outline-none resize-none h-20 text-gray-700 dark:text-gray-300" placeholder="何が一番うざい？" />
+        </div>
+        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-3xl border border-blue-100 dark:border-blue-900/30">
+          <label className="text-sm font-bold text-blue-600 dark:text-blue-400 mb-2 block">次の仕事の絶対条件 (北極星)</label>
+          <textarea value={workHope} onChange={(e) => setWorkHope(e.target.value)} className="w-full bg-transparent border-none text-sm outline-none resize-none h-20 text-gray-700 dark:text-gray-300" placeholder="これだけは譲れない条件は？" />
+        </div>
+      </div>
+
+      {/* タスク・候補リスト */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+        <label className="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between mb-4">
+          <span>具体的なタスク / 案件リスト</span>
+          <button onClick={addWorkTask} className="text-emerald-500 flex items-center gap-1 text-sm bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-lg"><Plus size={16}/> 追加</button>
+        </label>
+        <div className="space-y-3">
+          {workTasks.map(task => (
+            <div key={task.id} className="flex items-center gap-3">
+              <input type="checkbox" checked={task.done} onChange={(e) => updateWorkTask(task.id, 'done', e.target.checked)} className="w-5 h-5 accent-emerald-500 rounded cursor-pointer" />
+              <input type="text" value={task.text} onChange={(e) => updateWorkTask(task.id, 'text', e.target.value)} className={`flex-1 bg-transparent border-b border-gray-100 dark:border-gray-700 text-sm outline-none py-1 ${task.done ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-200'}`} placeholder="クラウドワークスの案件名などを入力" />
+              <button onClick={() => deleteWorkTask(task.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={16} /></button>
+            </div>
+          ))}
+          {workTasks.length === 0 && <p className="text-xs text-gray-400">タスクがありません。</p>}
+        </div>
+      </div>
+    </div>
+  );
 
   const renderFrontInput = () => (
     <div className="space-y-6 animate-in fade-in duration-500 pb-24">
@@ -346,7 +364,7 @@ export default function App() {
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-pink-50 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2">
-          <Crown size={20} className="text-pink-400" /> {isRolandMode ? "唯我独尊メーター" : "自分ファースト（自己中）度"} <span className="ml-auto text-sm text-gray-400">{selfishness}%</span>
+          <Crown size={20} className="text-pink-400" /> {isRolandMode ? "唯我独尊メーター" : "自己中度合い"} <span className="ml-auto text-sm text-gray-400">{selfishness}%</span>
         </label>
         <input type="range" min="0" max="100" value={selfishness} onChange={(e) => setSelfishness(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-pink-500 mt-2" />
         <div className="flex justify-between text-xs text-gray-400 mt-2 font-medium">
@@ -388,7 +406,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* 思考のパーキングロット（一時駐車場） */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-3">
           <BrainCircuit size={20} className={isRolandMode ? "text-yellow-500" : "text-teal-500"} /> 
@@ -408,7 +425,6 @@ export default function App() {
     </div>
   );
 
-  // --- 裏の入力 ---
   const renderBackInput = () => (
     <div className="space-y-6 animate-in fade-in duration-500 pb-24">
       <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 p-4 rounded-2xl shadow-sm border border-red-100 dark:border-red-800/50">
@@ -506,7 +522,7 @@ export default function App() {
                     <YAxis yAxisId="right" orientation="right" domain={[0, 5]} hide />
                     <Tooltip contentStyle={{ backgroundColor: tooltipBgColor, borderRadius: '12px', border: 'none' }} labelStyle={{ fontWeight: 'bold', color: tooltipTextColor }} itemStyle={{ color: tooltipTextColor }} />
                     <Line yAxisId="right" type="monotone" dataKey="mood" name="気分(1-5)" stroke="#f97316" strokeWidth={3} dot={{ r: 4 }} />
-                    <Line yAxisId="left" type="monotone" dataKey="selfishness" name="自分ファースト度" stroke="#ec4899" strokeWidth={3} dot={{ r: 4 }} />
+                    <Line yAxisId="left" type="monotone" dataKey="selfishness" name="自己中度合い" stroke="#ec4899" strokeWidth={3} dot={{ r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -534,55 +550,77 @@ export default function App() {
 
   const renderHistory = () => {
     const filteredEntries = entries.filter(e => isSecretMode ? e.isSecret : !e.isSecret);
-    if (filteredEntries.length === 0) return <div className="p-8 flex items-center justify-center h-full"><p className="text-gray-500">まだ記録がありません</p></div>;
-
+    
     return (
       <div className="p-4 space-y-4 animate-in fade-in pb-24">
-        <div className="space-y-4">
-          {filteredEntries.map((entry) => (
-            <div key={entry.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="flex gap-4 items-start">
-                <div className="bg-orange-50 dark:bg-gray-700 p-3 rounded-full flex-shrink-0">
-                  {getMoodIcon(entry.mood, 28)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                      <Clock size={14} className="text-orange-400"/> {entry.displayDate} {entry.displayTime || ''}
-                    </span>
-                    {entry.location && (
-                      <span className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-100 dark:border-emerald-800">
-                        <MapPin size={10} /> {entry.location}
+        {filteredEntries.length === 0 ? (
+          <div className="p-8 flex items-center justify-center"><p className="text-gray-500">まだ記録がありません</p></div>
+        ) : (
+          <div className="space-y-4">
+            {filteredEntries.map((entry) => (
+              <div key={entry.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex gap-4 items-start">
+                  <div className="bg-orange-50 dark:bg-gray-700 p-3 rounded-full flex-shrink-0">
+                    {getMoodIcon(entry.mood, 28)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                        <Clock size={14} className="text-orange-400"/> {entry.displayDate} {entry.displayTime || ''}
                       </span>
-                    )}
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mt-2 mb-2">
-                    {!entry.isSecret && (
-                      <>
-                        {entry.selfishness !== undefined && <span className="text-xs font-medium bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 px-2 py-1 rounded-md">俺様度 {entry.selfishness}%</span>}
-                        {entry.brainClarity !== undefined && <span className="text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 px-2 py-1 rounded-md">脳クリア {entry.brainClarity}%</span>}
-                        {entry.isRoland && <span className="text-xs font-bold bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-md flex items-center gap-1"><Crown size={12}/> 帝王モード</span>}
-                      </>
-                    )}
-                    {entry.isSecret && (
-                      <span className="text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-md">人間うざい度 {entry.humanAnnoyance}%</span>
-                    )}
+                      {entry.location && (
+                        <span className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-100 dark:border-emerald-800">
+                          <MapPin size={10} /> {entry.location}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                      {!entry.isSecret && (
+                        <>
+                          {entry.selfishness !== undefined && <span className="text-xs font-medium bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 px-2 py-1 rounded-md">自己中度 {entry.selfishness}%</span>}
+                          {entry.brainClarity !== undefined && <span className="text-xs font-medium bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 px-2 py-1 rounded-md">脳クリア {entry.brainClarity}%</span>}
+                          {entry.isRoland && <span className="text-xs font-bold bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-md flex items-center gap-1"><Crown size={12}/> 帝王モード</span>}
+                        </>
+                      )}
+                      {entry.isSecret && (
+                        <span className="text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1 rounded-md">人間うざい度 {entry.humanAnnoyance}%</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {(entry.note || entry.reflection) && (
-                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/50">
-                  <div className="flex gap-2 items-start text-sm text-gray-600 dark:text-gray-300">
-                    <PenTool size={16} className={`${entry.isSecret ? 'text-red-400' : (entry.isRoland ? 'text-yellow-500' : 'text-teal-400')} mt-0.5 flex-shrink-0`} />
-                    <p className="whitespace-pre-wrap leading-relaxed">{entry.note || entry.reflection}</p>
+                {(entry.note || entry.reflection) && (
+                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/50">
+                    <div className="flex gap-2 items-start text-sm text-gray-600 dark:text-gray-300">
+                      <PenTool size={16} className={`${entry.isSecret ? 'text-red-400' : (entry.isRoland ? 'text-yellow-500' : 'text-teal-400')} mt-0.5 flex-shrink-0`} />
+                      <p className="whitespace-pre-wrap leading-relaxed">{entry.note || entry.reflection}</p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* データバックアップ・復元エリア */}
+        <div className="mt-8 p-5 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-4">
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+            <Activity size={16} className="text-gray-500" /> データ管理（バックアップ）
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">アップデート等でデータが消えた時のために、定期的にダウンロードしておくと安心です。</p>
+          
+          <div className="flex gap-2">
+            <button onClick={exportData} className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-sm font-bold py-2 rounded-xl text-gray-700 dark:text-gray-200 transition-colors">
+              <Download size={16} /> 書き出し
+            </button>
+            <button onClick={() => fileInputRef.current.click()} className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-sm font-bold py-2 rounded-xl text-gray-700 dark:text-gray-200 transition-colors">
+              <Upload size={16} /> 復元する
+            </button>
+            <input type="file" accept=".json" ref={fileInputRef} onChange={importData} className="hidden" />
+          </div>
         </div>
+
       </div>
     );
   };
@@ -597,7 +635,7 @@ export default function App() {
             className={`text-xl font-extrabold bg-gradient-to-r ${isSecretMode ? 'from-red-500 to-orange-500' : (isRolandMode ? 'from-yellow-400 to-amber-600' : 'from-orange-500 to-pink-500')} bg-clip-text text-transparent flex items-center gap-2 cursor-pointer select-none`}
           >
             {isSecretMode ? <ShieldAlert size={24} className="text-red-500" /> : (isRolandMode ? <Crown size={24} className="text-yellow-500" /> : <Activity size={24} className="text-orange-500" />)}
-            {isSecretMode ? 'ココロとキロク (裏)' : (isRolandMode ? '帝王のキロク' : 'ココロとキロク')}
+            {isSecretMode ? '自己管理アプリ (裏)' : (isRolandMode ? '帝王のキロク' : '自己管理アプリ')}
           </h1>
           
           <div className="flex items-center gap-2">
@@ -614,7 +652,7 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto">
           {activeTab === 'input' && (isSecretMode ? renderBackInput() : renderFrontInput())}
-          {activeTab === 'projects' && !isSecretMode && renderProjects()}
+          {activeTab === 'work' && !isSecretMode && renderWorkTab()}
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'history' && renderHistory()}
           
@@ -635,7 +673,7 @@ export default function App() {
         {showToast && (
           <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-in fade-in z-50 whitespace-nowrap">
             <CheckCircle2 size={18} className={isSecretMode ? "text-red-400" : (isRolandMode ? "text-yellow-400" : "text-green-400")} />
-            記録しました！
+            {toastMessage}
           </div>
         )}
 
@@ -647,9 +685,9 @@ export default function App() {
             </button>
             
             {!isSecretMode && (
-              <button onClick={() => setActiveTab('projects')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'projects' ? 'text-emerald-500' : 'text-gray-400'}`}>
-                <Briefcase size={20} className={activeTab === 'projects' ? 'fill-emerald-100 dark:fill-emerald-900/50' : ''} />
-                <span className="text-[10px] font-bold">進行中</span>
+              <button onClick={() => setActiveTab('work')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'work' ? 'text-emerald-500' : 'text-gray-400'}`}>
+                <Briefcase size={20} className={activeTab === 'work' ? 'fill-emerald-100 dark:fill-emerald-900/50' : ''} />
+                <span className="text-[10px] font-bold">仕事/転職</span>
               </button>
             )}
 
