@@ -6,7 +6,7 @@ import {
   PenTool, BarChart3, List as ListIcon, ShieldAlert,
   Smile, Frown, Meh, Heart, Zap, Clock, CheckCircle2, Activity,
   Moon, Sun, Loader2, BedDouble, Sparkles, BrainCircuit, Compass, Bot, Lightbulb,
-  Crown, MapPin, Dumbbell, Wind, Briefcase, Plus, Trash2, Download, Upload, MessageSquarePlus
+  Crown, MapPin, Dumbbell, Wind, Briefcase, Plus, Trash2, Download, Upload, MessageSquarePlus, AlertOctagon
 } from 'lucide-react';
 
 const robotPhrases = [
@@ -34,10 +34,14 @@ const locationTags = ["🏠 自宅", "☕️ カフェ", "💪 部屋で筋ト�
 export default function App() {
   const [activeTab, setActiveTab] = useState('input'); // input, work, dashboard, history
   const [entries, setEntries] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+
+  // グラフのスパン（期間）管理
+  const [chartSpan, setChartSpan] = useState('all'); // 'today', 'week', 'all'
 
   const [isSecretMode, setIsSecretMode] = useState(false);
   const [isRolandMode, setIsRolandMode] = useState(false);
@@ -64,7 +68,7 @@ export default function App() {
   const [note, setNote] = useState(''); 
   
   // --- 仕事・転職管理用ステート ---
-  const [workIdeas, setWorkIdeas] = useState(""); // アイデア書き出し用
+  const [workIdeas, setWorkIdeas] = useState(""); 
   const [workDissatisfaction, setWorkDissatisfaction] = useState("無駄な人間関係。時間が縛られること。");
   const [workHope, setWorkHope] = useState("完全在宅。AIを活用して自分のペースで稼ぐ。");
   const [workTasks, setWorkTasks] = useState([
@@ -79,12 +83,25 @@ export default function App() {
   const [randomPhrase, setRandomPhrase] = useState(robotPhrases[0]);
   const [dailyQuestion, setDailyQuestion] = useState("");
 
+  // ★ Tailwind CSS の読み込みとダークモードの設定を確実にする
+  useEffect(() => {
+    if (!document.getElementById('tailwind-script')) {
+      const script = document.createElement('script');
+      script.id = 'tailwind-script';
+      script.src = "https://cdn.tailwindcss.com";
+      document.head.appendChild(script);
+
+      const configScript = document.createElement('script');
+      configScript.innerHTML = `tailwind.config = { darkMode: 'class' }`;
+      document.head.appendChild(configScript);
+    }
+  }, []);
+
   // 初期読み込み
   useEffect(() => {
     const savedEntries = localStorage.getItem('kokoro_entries_v4');
     if (savedEntries) setEntries(JSON.parse(savedEntries));
     
-    // 仕事・転職データの読み込み
     const savedWorkIdeas = localStorage.getItem('work_ideas');
     if (savedWorkIdeas) setWorkIdeas(savedWorkIdeas);
     const savedWorkDis = localStorage.getItem('work_dissatisfaction');
@@ -111,15 +128,6 @@ export default function App() {
       setDailyQuestion(philosophicalQuestions[Math.floor(Math.random() * philosophicalQuestions.length)]);
     }
   }, [isRolandMode, activeTab]);
-
-  useEffect(() => {
-    if (!document.getElementById('tailwind-script')) {
-      const script = document.createElement('script');
-      script.id = 'tailwind-script';
-      script.src = "https://cdn.tailwindcss.com";
-      document.head.appendChild(script);
-    }
-  }, []);
 
   const triggerToast = (msg) => {
     setToastMessage(msg);
@@ -152,7 +160,6 @@ export default function App() {
     setIsEditingStar(false);
   };
 
-  // --- 仕事・転職データの保存関数 ---
   const saveWorkData = () => {
     localStorage.setItem('work_ideas', workIdeas);
     localStorage.setItem('work_dissatisfaction', workDissatisfaction);
@@ -161,19 +168,9 @@ export default function App() {
     triggerToast("仕事の計画を保存しました！");
   };
 
-  const addWorkTask = () => {
-    const newTask = { id: Date.now().toString(), text: '', done: false };
-    setWorkTasks([...workTasks, newTask]);
-  };
-
-  const updateWorkTask = (id, field, value) => {
-    const updated = workTasks.map(t => t.id === id ? { ...t, [field]: value } : t);
-    setWorkTasks(updated);
-  };
-
-  const deleteWorkTask = (id) => {
-    setWorkTasks(workTasks.filter(t => t.id !== id));
-  };
+  const addWorkTask = () => setWorkTasks([...workTasks, { id: Date.now().toString(), text: '', done: false }]);
+  const updateWorkTask = (id, field, value) => setWorkTasks(workTasks.map(t => t.id === id ? { ...t, [field]: value } : t));
+  const deleteWorkTask = (id) => setWorkTasks(workTasks.filter(t => t.id !== id));
 
   const handleSave = () => {
     const now = new Date();
@@ -203,6 +200,7 @@ export default function App() {
     }
   };
 
+  // バックアップ機能
   const exportData = () => {
     const backupData = {
       entries,
@@ -216,9 +214,9 @@ export default function App() {
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
-    triggerToast("バックアップ用ファイルを生成しました！");
   };
 
+  // 復元機能
   const importData = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -251,6 +249,28 @@ export default function App() {
     event.target.value = '';
   };
 
+  // ★ 新機能：自動バックアップ付き全消去
+  const handleDeleteAllData = () => {
+    if (window.confirm("【警告】すべてのデータを消去しますか？\n※「OK」を押すと、まず自動でバックアップがダウンロードされ、その後データが消去されます。")) {
+      // 1. まずバックアップを書き出す
+      exportData();
+      
+      // 2. 少し待ってからローカルストレージとステートを消去
+      setTimeout(() => {
+        localStorage.removeItem('kokoro_entries_v4');
+        localStorage.removeItem('work_ideas');
+        localStorage.removeItem('work_dissatisfaction');
+        localStorage.removeItem('work_hope');
+        localStorage.removeItem('work_tasks');
+        
+        setEntries([]);
+        setWorkIdeas("");
+        setWorkTasks([]);
+        triggerToast("データを全消去しました。新しいスタートです！");
+      }, 1000);
+    }
+  };
+
 
   const generateRobotPhrase = () => setRandomPhrase(robotPhrases[Math.floor(Math.random() * robotPhrases.length)]);
 
@@ -275,9 +295,8 @@ export default function App() {
     );
   }
 
-  // --- 仕事・転職タブ ---
   const renderWorkTab = () => (
-    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-24">
+    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-28">
       <div className="flex justify-between items-center mb-2">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
           <Briefcase className="text-emerald-500" /> 仕事・転職ベース
@@ -288,22 +307,17 @@ export default function App() {
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">現状を変えるためのアイデアやタスクをここに集約しよう。</p>
 
-      {/* アイデアブレインストーミング */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-emerald-50 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-bold mb-3">
-          <MessageSquarePlus size={20} className="text-emerald-400" /> 
-          アイデア・ブレスト置き場
+          <MessageSquarePlus size={20} className="text-emerald-400" /> アイデア・ブレスト置き場
         </label>
-        <p className="text-xs text-gray-400 mb-2">AIで自動化できそうな事、やってみたい仕事、思いついた案をどんどん書き殴る場所。</p>
         <textarea 
-          value={workIdeas} 
-          onChange={(e) => setWorkIdeas(e.target.value)} 
+          value={workIdeas} onChange={(e) => setWorkIdeas(e.target.value)} 
           placeholder="・AIにブログ記事を書かせてみる&#10;・クラウドワークスでデータ入力の案件を探す..." 
           className="w-full bg-emerald-50/50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-40 transition-colors" 
         />
       </div>
 
-      {/* 不満と希望の明確化 */}
       <div className="grid grid-cols-1 gap-4">
         <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-3xl border border-red-100 dark:border-red-900/30">
           <label className="text-sm font-bold text-red-600 dark:text-red-400 mb-2 block">今の仕事の不満 (反骨心の源)</label>
@@ -315,7 +329,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* タスク・候補リスト */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
         <label className="font-bold text-gray-700 dark:text-gray-200 flex items-center justify-between mb-4">
           <span>具体的なタスク / 案件リスト</span>
@@ -336,7 +349,7 @@ export default function App() {
   );
 
   const renderFrontInput = () => (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-24">
+    <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-28">
       <div className={`p-4 rounded-2xl shadow-sm border ${isRolandMode ? 'bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border-yellow-200 dark:border-yellow-700/50' : 'bg-gradient-to-r from-teal-50 to-blue-50 dark:from-teal-900/20 dark:to-blue-900/20 border-teal-100 dark:border-teal-800/50'}`}>
         <div className={`flex items-center gap-2 font-bold mb-2 ${isRolandMode ? 'text-yellow-700 dark:text-yellow-400' : 'text-teal-700 dark:text-teal-400'}`}>
           {isRolandMode ? <Crown size={18} /> : <Compass size={18} />}<span>{isRolandMode ? "俺の美学" : "私の北極星"}</span>
@@ -367,9 +380,6 @@ export default function App() {
           <Crown size={20} className="text-pink-400" /> {isRolandMode ? "唯我独尊メーター" : "自己中度合い"} <span className="ml-auto text-sm text-gray-400">{selfishness}%</span>
         </label>
         <input type="range" min="0" max="100" value={selfishness} onChange={(e) => setSelfishness(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-pink-500 mt-2" />
-        <div className="flex justify-between text-xs text-gray-400 mt-2 font-medium">
-          <span>他人に振り回された</span><span>完全俺様ペース</span>
-        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -386,11 +396,11 @@ export default function App() {
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-cyan-50 dark:border-gray-700 space-y-6">
         <div>
-          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Wind size={20} className="text-cyan-400" /> {isRolandMode ? "脳のキレ" : "頭のクリアさ（ブレインフォグ）"} <span className="ml-auto text-sm text-gray-400">{brainClarity}%</span></label>
+          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Wind size={20} className="text-cyan-400" /> 頭のクリアさ <span className="ml-auto text-sm text-gray-400">{brainClarity}%</span></label>
           <input type="range" min="0" max="100" value={brainClarity} onChange={(e) => setBrainClarity(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-cyan-500 mt-2" />
         </div>
         <div>
-          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Dumbbell size={20} className="text-rose-400" /> {isRolandMode ? "肉体のナマり具合" : "感覚的な運動不足感"} <span className="ml-auto text-sm text-gray-400">{exerciseDeficiency}%</span></label>
+          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Dumbbell size={20} className="text-rose-400" /> 運動不足感 <span className="ml-auto text-sm text-gray-400">{exerciseDeficiency}%</span></label>
           <input type="range" min="0" max="100" value={exerciseDeficiency} onChange={(e) => setExerciseDeficiency(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-rose-500 mt-2" />
         </div>
       </div>
@@ -409,16 +419,15 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-3">
           <BrainCircuit size={20} className={isRolandMode ? "text-yellow-500" : "text-teal-500"} /> 
-          {isRolandMode ? "帝王の哲学" : "思考のパーキングロット（退避場所）"}
+          思考のパーキングロット
         </label>
         <div className={`mb-3 flex gap-2 items-start text-sm p-3 rounded-xl border-l-4 ${isRolandMode ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400' : 'bg-gray-50 dark:bg-gray-900/40 border-teal-400'}`}>
           <Lightbulb size={16} className={`mt-0.5 flex-shrink-0 ${isRolandMode ? 'text-yellow-500' : 'text-teal-500'}`} />
           <p className="text-gray-600 dark:text-gray-300 italic">{dailyQuestion}</p>
         </div>
         <textarea 
-          value={reflection} 
-          onChange={(e) => setReflection(e.target.value)} 
-          placeholder={isRolandMode ? "世界に響かせる言葉を..." : "作業中に急に浮かんだ邪魔な思考や、今の気持ちをここに吐き出して脳を空っぽにしよう！"} 
+          value={reflection} onChange={(e) => setReflection(e.target.value)} 
+          placeholder="作業中に急に浮かんだ邪魔な思考をここに吐き出して脳を空っぽにしよう！" 
           className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-24" 
         />
       </div>
@@ -426,7 +435,7 @@ export default function App() {
   );
 
   const renderBackInput = () => (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-24">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-28">
       <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 p-4 rounded-2xl shadow-sm border border-red-100 dark:border-red-800/50">
         <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold mb-2">
           <Compass size={18} /><span>俺の絶対的ルール（北極星）</span>
@@ -472,12 +481,46 @@ export default function App() {
   );
 
   const renderDashboard = () => {
-    const filteredEntries = entries.filter(e => isSecretMode ? e.isSecret : !e.isSecret);
-    if (filteredEntries.length === 0) return <div className="p-8 flex items-center justify-center h-full"><p className="text-gray-500">まだデータがありません</p></div>;
-    const graphData = [...filteredEntries].reverse();
+    // 期間によるフィルタリング
+    const now = new Date();
+    const filteredEntries = entries.filter(e => {
+      const isCorrectMode = isSecretMode ? e.isSecret : !e.isSecret;
+      if (!isCorrectMode) return false;
+      
+      const entryDate = new Date(e.date);
+      if (chartSpan === 'today') {
+        return entryDate.toDateString() === now.toDateString();
+      } else if (chartSpan === 'week') {
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return entryDate >= oneWeekAgo;
+      }
+      return true; // 'all'
+    });
+
+    if (filteredEntries.length === 0) return <div className="p-8 flex flex-col items-center justify-center h-full"><p className="text-gray-500 mb-4">この期間のデータがありません</p><div className="flex gap-2">{renderSpanButtons()}</div></div>;
+    
+    // 表示用のラベルを整形（今日なら時間のみ、それ以外なら日付+時間）
+    const graphData = [...filteredEntries].reverse().map(d => ({
+      ...d,
+      chartLabel: chartSpan === 'today' ? d.displayTime : `${d.displayDate} ${d.displayTime}`
+    }));
+
+    function renderSpanButtons() {
+      return (
+        <div className="flex justify-center gap-2 mb-6">
+          <button onClick={() => setChartSpan('today')} className={`px-4 py-1 text-xs font-bold rounded-full border transition-colors ${chartSpan === 'today' ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900' : 'bg-transparent text-gray-500 border-gray-300 dark:border-gray-700'}`}>今日</button>
+          <button onClick={() => setChartSpan('week')} className={`px-4 py-1 text-xs font-bold rounded-full border transition-colors ${chartSpan === 'week' ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900' : 'bg-transparent text-gray-500 border-gray-300 dark:border-gray-700'}`}>1週間</button>
+          <button onClick={() => setChartSpan('all')} className={`px-4 py-1 text-xs font-bold rounded-full border transition-colors ${chartSpan === 'all' ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900' : 'bg-transparent text-gray-500 border-gray-300 dark:border-gray-700'}`}>すべて</button>
+        </div>
+      );
+    }
 
     return (
-      <div className="p-4 space-y-6 animate-in fade-in pb-24">
+      <div className="p-4 space-y-6 animate-in fade-in pb-28">
+        
+        {/* ★ スパン切り替えボタン */}
+        {renderSpanButtons()}
+
         {isSecretMode ? (
           <>
             <div className="bg-white dark:bg-gray-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
@@ -485,9 +528,10 @@ export default function App() {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={graphData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} dy={10} />
+                    <XAxis dataKey="chartLabel" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chartTextColor }} dy={10} />
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} domain={[0, 100]} />
-                    <YAxis yAxisId="right" orientation="right" domain={[0, 5]} hide />
+                    {/* ★ 気分のY軸ドメインを1〜5に修正し、底につくように */}
+                    <YAxis yAxisId="right" orientation="right" domain={[1, 5]} hide />
                     <Tooltip contentStyle={{ backgroundColor: tooltipBgColor, borderRadius: '12px', border: 'none' }} labelStyle={{ fontWeight: 'bold', color: tooltipTextColor }} itemStyle={{ color: tooltipTextColor }} />
                     <Line yAxisId="right" type="monotone" dataKey="mood" name="気分(1-5)" stroke="#f97316" strokeWidth={3} dot={{ r: 4 }} />
                     <Line yAxisId="left" type="monotone" dataKey="humanAnnoyance" name="人間うざい度" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} />
@@ -500,7 +544,7 @@ export default function App() {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={graphData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} dy={10} />
+                    <XAxis dataKey="chartLabel" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chartTextColor }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} domain={[0, 100]} />
                     <Tooltip contentStyle={{ backgroundColor: tooltipBgColor, borderRadius: '12px', border: 'none' }} labelStyle={{ fontWeight: 'bold', color: tooltipTextColor }} itemStyle={{ color: tooltipTextColor }} />
                     <ReferenceLine y={50} stroke={chartGridColor} strokeDasharray="3 3" />
@@ -517,9 +561,10 @@ export default function App() {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={graphData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} dy={10} />
+                    <XAxis dataKey="chartLabel" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chartTextColor }} dy={10} />
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} domain={[0, 100]} />
-                    <YAxis yAxisId="right" orientation="right" domain={[0, 5]} hide />
+                    {/* ★ 気分のY軸ドメインを1〜5に修正 */}
+                    <YAxis yAxisId="right" orientation="right" domain={[1, 5]} hide />
                     <Tooltip contentStyle={{ backgroundColor: tooltipBgColor, borderRadius: '12px', border: 'none' }} labelStyle={{ fontWeight: 'bold', color: tooltipTextColor }} itemStyle={{ color: tooltipTextColor }} />
                     <Line yAxisId="right" type="monotone" dataKey="mood" name="気分(1-5)" stroke="#f97316" strokeWidth={3} dot={{ r: 4 }} />
                     <Line yAxisId="left" type="monotone" dataKey="selfishness" name="自己中度合い" stroke="#ec4899" strokeWidth={3} dot={{ r: 4 }} />
@@ -533,7 +578,7 @@ export default function App() {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={graphData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="displayDate" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} dy={10} />
+                    <XAxis dataKey="chartLabel" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chartTextColor }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: chartTextColor }} domain={[0, 100]} />
                     <Tooltip contentStyle={{ backgroundColor: tooltipBgColor, borderRadius: '12px', border: 'none' }} labelStyle={{ fontWeight: 'bold', color: tooltipTextColor }} itemStyle={{ color: tooltipTextColor }} />
                     <Line type="monotone" dataKey="brainClarity" name="頭のクリアさ" stroke="#06b6d4" strokeWidth={3} dot={{ r: 4 }} />
@@ -552,7 +597,7 @@ export default function App() {
     const filteredEntries = entries.filter(e => isSecretMode ? e.isSecret : !e.isSecret);
     
     return (
-      <div className="p-4 space-y-4 animate-in fade-in pb-24">
+      <div className="p-4 space-y-4 animate-in fade-in pb-28">
         {filteredEntries.length === 0 ? (
           <div className="p-8 flex items-center justify-center"><p className="text-gray-500">まだ記録がありません</p></div>
         ) : (
@@ -603,12 +648,12 @@ export default function App() {
           </div>
         )}
 
-        {/* データバックアップ・復元エリア */}
+        {/* ★ データバックアップ・復元エリア（全消去ボタン追加） */}
         <div className="mt-8 p-5 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-4">
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-            <Activity size={16} className="text-gray-500" /> データ管理（バックアップ）
+            <Activity size={16} className="text-gray-500" /> データ管理
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">アップデート等でデータが消えた時のために、定期的にダウンロードしておくと安心です。</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">機種変更やアップデートに備えてバックアップ！</p>
           
           <div className="flex gap-2">
             <button onClick={exportData} className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-sm font-bold py-2 rounded-xl text-gray-700 dark:text-gray-200 transition-colors">
@@ -619,14 +664,21 @@ export default function App() {
             </button>
             <input type="file" accept=".json" ref={fileInputRef} onChange={importData} className="hidden" />
           </div>
+
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button onClick={handleDeleteAllData} className="w-full flex items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-900/40 text-sm font-bold py-2 rounded-xl transition-colors">
+              <AlertOctagon size={16} /> 全データを消去してリセット
+            </button>
+          </div>
         </div>
 
       </div>
     );
   };
 
+  // ★ 1番外側のクラスで、isDarkMode に応じて 'dark' クラスを付け外しする
   return (
-    <div className={`min-h-screen font-sans flex justify-center transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-950' : 'bg-stone-50'}`}>
+    <div className={`min-h-screen font-sans flex justify-center transition-colors duration-300 ${isDarkMode ? 'dark' : ''}`}>
       <div className="w-full max-w-md bg-stone-50 dark:bg-gray-900 h-screen flex flex-col relative shadow-2xl overflow-hidden transition-colors duration-300">
         
         <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md pt-6 pb-4 px-4 sticky top-0 z-10 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between transition-colors">
@@ -651,23 +703,25 @@ export default function App() {
         </header>
 
         <main className="flex-1 overflow-y-auto">
-          {activeTab === 'input' && (isSecretMode ? renderBackInput() : renderFrontInput())}
+          {activeTab === 'input' && (
+            <>
+              {isSecretMode ? renderBackInput() : renderFrontInput()}
+              {/* ★ ボタンが埋まらないようにパディングを確保したエリアに配置 */}
+              <div className="px-4 pb-28 pt-2">
+                <button 
+                  onClick={handleSave} 
+                  className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 
+                    ${isSecretMode ? 'bg-red-500 hover:bg-red-600' : (isRolandMode ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700' : 'bg-orange-500 hover:bg-orange-600')}`}
+                >
+                  {isSecretMode ? <ShieldAlert size={20} /> : (isRolandMode ? <Crown size={20} /> : <Activity size={20} />)}
+                  {isSecretMode ? '本音を封印する' : (isRolandMode ? '歴史を刻む' : '状態を記録する')}
+                </button>
+              </div>
+            </>
+          )}
           {activeTab === 'work' && !isSecretMode && renderWorkTab()}
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'history' && renderHistory()}
-          
-          {activeTab === 'input' && (
-            <div className="px-4 pb-4">
-              <button 
-                onClick={handleSave} 
-                className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 mt-4 
-                  ${isSecretMode ? 'bg-red-500 hover:bg-red-600' : (isRolandMode ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700' : 'bg-orange-500 hover:bg-orange-600')}`}
-              >
-                {isSecretMode ? <ShieldAlert size={20} /> : (isRolandMode ? <Crown size={20} /> : <Activity size={20} />)}
-                {isSecretMode ? '本音を封印する' : (isRolandMode ? '歴史を刻む' : '状態を記録する')}
-              </button>
-            </div>
-          )}
         </main>
 
         {showToast && (
