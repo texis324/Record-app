@@ -6,7 +6,8 @@ import {
   PenTool, BarChart3, List as ListIcon, ShieldAlert,
   Smile, Frown, Meh, Heart, Zap, Clock, CheckCircle2, Activity,
   Moon, Sun, Loader2, BedDouble, Sparkles, BrainCircuit, Compass, Bot, Lightbulb,
-  Crown, MapPin, Dumbbell, Wind, Briefcase, Plus, Trash2, Download, Upload, MessageSquarePlus, AlertOctagon
+  Crown, MapPin, Dumbbell, Wind, Briefcase, Plus, Trash2, Download, Upload, MessageSquarePlus, AlertOctagon,
+  Copy, ChevronDown, ChevronUp, FileText // ★ 追加したアイコン
 } from 'lucide-react';
 
 const robotPhrases = [
@@ -39,11 +40,15 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const [chartSpan, setChartSpan] = useState('all');
+  const [chartSpan, setChartSpan] = useState('today');
 
   const [isSecretMode, setIsSecretMode] = useState(false);
   const [isRolandMode, setIsRolandMode] = useState(false);
   const [tapCount, setTapCount] = useState(0);
+
+  // ★ 新設：メモ一括抽出用のステート
+  const [memoFilter, setMemoFilter] = useState('today');
+  const [isMemoExtractorOpen, setIsMemoExtractorOpen] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -123,6 +128,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (isLoading) return;
+    localStorage.setItem('work_ideas', workIdeas);
+    localStorage.setItem('work_dissatisfaction', workDissatisfaction);
+    localStorage.setItem('work_hope', workHope);
+    localStorage.setItem('work_tasks', JSON.stringify(workTasks));
+  }, [workIdeas, workDissatisfaction, workHope, workTasks, isLoading]);
+
+  useEffect(() => {
     if (isRolandMode) {
       setDailyQuestion(rolandQuestions[Math.floor(Math.random() * rolandQuestions.length)]);
     } else {
@@ -162,10 +175,6 @@ export default function App() {
   };
 
   const saveWorkData = () => {
-    localStorage.setItem('work_ideas', workIdeas);
-    localStorage.setItem('work_dissatisfaction', workDissatisfaction);
-    localStorage.setItem('work_hope', workHope);
-    localStorage.setItem('work_tasks', JSON.stringify(workTasks));
     triggerToast("仕事の計画を保存しました！");
   };
 
@@ -195,6 +204,7 @@ export default function App() {
     if (isSecretMode) { setNote(''); } else { setReflection(''); }
   };
 
+  // --- バックアップ関連 ---
   const exportData = () => {
     const backupData = {
       entries,
@@ -251,7 +261,7 @@ export default function App() {
         localStorage.removeItem('work_dissatisfaction');
         localStorage.removeItem('work_hope');
         localStorage.removeItem('work_tasks');
-        setEntries([]); setWorkIdeas(""); setWorkTasks([]);
+        setEntries([]); setWorkIdeas(""); setWorkTasks([]); setWorkDissatisfaction(""); setWorkHope("");
         triggerToast("データを全消去しました。");
       }, 1000);
     }
@@ -280,7 +290,68 @@ export default function App() {
     );
   }
 
-  // ★各タブのレンダリングから、余計な pb-28 などの下部余白を削除しました。
+  // ★ メモ抽出ロジック（Historyタブ用）
+  const aggregatedMemo = (() => {
+    const now = new Date();
+    const filteredForMemo = entries.filter(e => {
+      // 表と裏のメモが混ざらないように、現在のモードに合わせて抽出
+      const isCorrectMode = isSecretMode ? e.isSecret : !e.isSecret;
+      if (!isCorrectMode) return false;
+
+      const d = new Date(e.date);
+      if (memoFilter === 'today') return d.toDateString() === now.toDateString();
+      if (memoFilter === 'today_am') return d.toDateString() === now.toDateString() && d.getHours() < 12;
+      if (memoFilter === 'today_pm') return d.toDateString() === now.toDateString() && d.getHours() >= 12;
+      if (memoFilter === 'yesterday') {
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return d.toDateString() === yesterday.toDateString();
+      }
+      return true; // all
+    });
+
+    // テキストが入っているものだけを抽出して合体
+    const memoTexts = filteredForMemo.map(e => {
+      const text = isSecretMode ? e.note : e.reflection;
+      if (!text) return null;
+      // 何時に入力したものかが分かるように時間をスタンプ
+      return `【${e.displayDate} ${e.displayTime}】\n${text}`;
+    }).filter(t => t !== null);
+
+    // 古い順（時系列）にしたい場合は reverse してから join
+    return memoTexts.reverse().join('\n\n-------------------\n\n');
+  })();
+
+  const handleCopyMemo = () => {
+    if (!aggregatedMemo) {
+      triggerToast("コピーするメモがありません");
+      return;
+    }
+    // クリップボードにコピー
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(aggregatedMemo).then(() => {
+        triggerToast("AI用にコピーしました！");
+      }).catch(() => {
+        triggerToast("コピー失敗。手動でコピーしてね。");
+      });
+    } else {
+      // 古いブラウザ用のフォールバック
+      const textArea = document.createElement("textarea");
+      textArea.value = aggregatedMemo;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        triggerToast("AI用にコピーしました！");
+      } catch (err) {
+        triggerToast("コピー失敗。手動でコピーしてね。");
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
+
   const renderWorkTab = () => (
     <div className="p-4 space-y-6 animate-in fade-in duration-500 pb-8">
       <div className="flex justify-between items-center mb-2">
@@ -291,12 +362,13 @@ export default function App() {
           保存
         </button>
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">現状を変えるためのアイデアやタスクをここに集約しよう。</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">現状を変えるためのアイデアやタスクをここに集約しよう。※自動保存されます</p>
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-emerald-50 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-bold mb-3">
           <MessageSquarePlus size={20} className="text-emerald-400" /> アイデア・ブレスト置き場
         </label>
+        <p className="text-xs text-gray-400 mb-2">※書いたものはAIにコピペしてまとめさせよう！</p>
         <textarea 
           value={workIdeas} onChange={(e) => setWorkIdeas(e.target.value)} 
           placeholder="・AIにブログ記事を書かせてみる&#10;・クラウドワークスでデータ入力の案件を探す..." 
@@ -365,7 +437,7 @@ export default function App() {
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2">
           <Crown size={20} className="text-pink-400" /> {isRolandMode ? "唯我独尊メーター" : "自己中度合い"} <span className="ml-auto text-sm text-gray-400">{selfishness}%</span>
         </label>
-        <input type="range" min="0" max="100" value={selfishness} onChange={(e) => setSelfishness(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-pink-500 mt-2" />
+        <input type="range" min="0" max="100" value={selfishness} onChange={(e) => setSelfishness(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-pink-50 mt-2" />
         <div className="flex justify-between text-xs text-gray-400 mt-2 font-medium">
           <span>他人に振り回された</span><span>完全俺様ペース</span>
         </div>
@@ -385,7 +457,7 @@ export default function App() {
 
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-cyan-50 dark:border-gray-700 space-y-6">
         <div>
-          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Wind size={20} className="text-cyan-400" /> 頭のクリアさ <span className="ml-auto text-sm text-gray-400">{brainClarity}%</span></label>
+          <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-2"><Wind size={20} className="text-cyan-400" /> 頭のクリアさ(疲れ具合) <span className="ml-auto text-sm text-gray-400">{brainClarity}%</span></label>
           <input type="range" min="0" max="100" value={brainClarity} onChange={(e) => setBrainClarity(parseInt(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none accent-cyan-500 mt-2" />
         </div>
         <div>
@@ -420,18 +492,6 @@ export default function App() {
           placeholder={isRolandMode ? "世界に響かせる言葉を..." : "邪魔な思考をここに吐き出して脳を空っぽにしよう！"} 
           className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-24" 
         />
-      </div>
-      
-      {/* 保存ボタンをコンテンツの一番下に配置（浮かせるのをやめました） */}
-      <div className="pt-2">
-        <button 
-          onClick={handleSave} 
-          className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 
-            ${isSecretMode ? 'bg-red-500 hover:bg-red-600' : (isRolandMode ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700' : 'bg-orange-500 hover:bg-orange-600')}`}
-        >
-          {isSecretMode ? <ShieldAlert size={20} /> : (isRolandMode ? <Crown size={20} /> : <Activity size={20} />)}
-          {isSecretMode ? '本音を封印する' : (isRolandMode ? '歴史を刻む' : '状態を記録する')}
-        </button>
       </div>
     </div>
   );
@@ -478,15 +538,6 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <label className="flex items-center gap-2 text-gray-700 dark:text-gray-200 font-medium mb-3"><PenTool size={20} className="text-red-500" /> 本音ダンプ</label>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="あいつマジでうざい..." className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-100 border-none rounded-xl p-4 text-sm outline-none resize-none h-32" />
-      </div>
-
-      <div className="pt-2">
-        <button 
-          onClick={handleSave} 
-          className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2"
-        >
-          <ShieldAlert size={20} /> 本音を封印する
-        </button>
       </div>
     </div>
   );
@@ -594,6 +645,56 @@ export default function App() {
     
     return (
       <div className="p-4 space-y-4 animate-in fade-in pb-8">
+        
+        {/* ★ AI要約用 メモ一括抽出ツール */}
+        <div className="mb-6">
+          <button 
+            onClick={() => setIsMemoExtractorOpen(!isMemoExtractorOpen)}
+            className="w-full flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 p-4 rounded-2xl font-bold border border-blue-100 dark:border-blue-900/50 transition-colors"
+          >
+            <span className="flex items-center gap-2"><FileText size={18} /> AI要約用 メモ一括抽出ツール</span>
+            {isMemoExtractorOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+          
+          {isMemoExtractorOpen && (
+            <div className="mt-2 bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3 animate-in slide-in-from-top-2">
+              <p className="text-xs text-gray-500">指定した期間のメモをガッチャンコしてAIに投げよう！</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'today', label: '今日' },
+                  { id: 'today_am', label: '今日の午前' },
+                  { id: 'today_pm', label: '今日の午後' },
+                  { id: 'yesterday', label: '昨日' },
+                  { id: 'all', label: 'すべて' }
+                ].map(f => (
+                  <button 
+                    key={f.id} 
+                    onClick={() => setMemoFilter(f.id)}
+                    className={`px-3 py-1 text-xs font-bold rounded-full border transition-colors ${memoFilter === f.id ? 'bg-blue-500 text-white border-blue-500' : 'bg-transparent text-gray-500 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              
+              <textarea 
+                readOnly 
+                value={aggregatedMemo} 
+                placeholder="この期間のメモはありません"
+                className="w-full bg-gray-50 dark:bg-gray-900/50 dark:text-gray-200 border-none rounded-xl p-3 text-sm outline-none resize-none h-40"
+              />
+              
+              <button 
+                onClick={handleCopyMemo}
+                className="w-full flex items-center justify-center gap-2 bg-gray-800 dark:bg-gray-700 hover:bg-gray-900 dark:hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+              >
+                <Copy size={16} /> 1タップでコピーしてAIに投げる！
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* いつもの履歴リスト */}
         {filteredEntries.length === 0 ? (
           <div className="p-8 flex items-center justify-center"><p className="text-gray-500">まだ記録がありません</p></div>
         ) : (
@@ -644,7 +745,6 @@ export default function App() {
           </div>
         )}
 
-        {/* データバックアップ・復元エリア */}
         <div className="mt-8 p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <Activity size={16} className="text-gray-500" /> データ管理
@@ -672,12 +772,10 @@ export default function App() {
     );
   };
 
-  // ★ 箱の作り方を「fixed inset-0」に変更し、ナビゲーションバーを「flex-none」として完全に枠内に収めました
   return (
     <div className="fixed inset-0 flex justify-center bg-stone-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100 transition-colors duration-300">
       <div className="w-full max-w-md bg-stone-50 dark:bg-gray-900 h-full flex flex-col shadow-2xl relative">
         
-        {/* ヘッダー（固定） */}
         <header className="flex-none bg-white/80 dark:bg-gray-900/80 backdrop-blur-md pt-safe pt-6 pb-4 px-4 z-10 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between transition-colors">
           <h1 
             onClick={handleSecretTap}
@@ -699,15 +797,27 @@ export default function App() {
           </div>
         </header>
 
-        {/* メインコンテンツ（この中だけがスクロールする） */}
         <main className="flex-1 overflow-y-auto">
-          {activeTab === 'input' && (isSecretMode ? renderBackInput() : renderFrontInput())}
+          {activeTab === 'input' && (
+            <>
+              {isSecretMode ? renderBackInput() : renderFrontInput()}
+              <div className="px-4 pb-8 pt-2">
+                <button 
+                  onClick={handleSave} 
+                  className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 
+                    ${isSecretMode ? 'bg-red-500 hover:bg-red-600' : (isRolandMode ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700' : 'bg-orange-500 hover:bg-orange-600')}`}
+                >
+                  {isSecretMode ? <ShieldAlert size={20} /> : (isRolandMode ? <Crown size={20} /> : <Activity size={20} />)}
+                  {isSecretMode ? '本音を封印する' : (isRolandMode ? '歴史を刻む' : '状態を記録する')}
+                </button>
+              </div>
+            </>
+          )}
           {activeTab === 'work' && renderWorkTab()}
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'history' && renderHistory()}
         </main>
 
-        {/* トースト通知 */}
         {showToast && (
           <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-100 text-white dark:text-gray-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-in fade-in z-50 whitespace-nowrap">
             <CheckCircle2 size={18} className={isSecretMode ? "text-red-400" : (isRolandMode ? "text-yellow-400" : "text-green-400")} />
@@ -715,7 +825,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ナビゲーションバー（固定） */}
         <nav className="flex-none w-full bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 pb-safe z-20 transition-colors">
           <div className="flex justify-around items-center h-16 px-1">
             <button onClick={() => setActiveTab('input')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'input' ? (isSecretMode ? 'text-red-500' : (isRolandMode ? 'text-yellow-600' : 'text-orange-500')) : 'text-gray-400'}`}>
